@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Is my black your black?</title>
+<meta name="description" content="A rigorous scientific test of where your black ends and black begins.">
+<meta name="theme-color" content="#000">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#000;color:#ddd;
+    font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    transition:background-color .5s;overflow:hidden;
+  }
+  main{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:6vh 1.5rem 8vh;text-align:center}
+  h1{font-size:clamp(1.6rem,5vw,3rem);font-weight:700;letter-spacing:-.02em}
+  .sub{opacity:.6;margin-top:.5rem;max-width:34rem}
+  .q{font-size:clamp(1.1rem,3vw,1.5rem);opacity:.85}
+  .hex{font:12px ui-monospace,monospace;opacity:.35;margin-top:.4rem}
+  .progress{font-size:.85rem;opacity:.4;margin-top:.25rem}
+  .btns{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;position:relative}
+  button{
+    font:inherit;font-size:1.15rem;font-weight:600;cursor:pointer;
+    padding:.9rem 2.2rem;border-radius:999px;border:2px solid #333;
+    background:#000;color:#eee;min-width:10rem;transition:transform .15s,border-color .15s
+  }
+  button:hover{border-color:#777;transform:translateY(-2px)}
+  button:active{transform:scale(.97)}
+  .start{border-color:#555}
+  .dodge{position:relative;transition:left .12s,top .12s}
+  .hidden{display:none!important}
+  #result{max-width:40rem;width:100%;display:flex;flex-direction:column;gap:1.4rem;align-items:center;overflow:auto}
+  #result h2{font-size:clamp(1.4rem,4vw,2.2rem)}
+  .bar{width:100%;height:56px;border-radius:10px;background:linear-gradient(90deg,#000,#000);border:1px solid #1a1a1a;position:relative}
+  .marker{position:absolute;top:-10px;bottom:-10px;width:3px;background:#fff;border-radius:2px;left:50%;transform:translateX(-50%)}
+  .marker::after{content:"you";position:absolute;top:-1.6rem;left:50%;transform:translateX(-50%);font-size:.75rem;opacity:.7}
+  .labels{display:flex;justify-content:space-between;width:100%;font-size:.8rem;opacity:.5;margin-top:-1rem}
+  .chart{width:100%;height:160px;border:1px solid #1a1a1a;border-radius:10px;background:#000;position:relative}
+  .chart svg{width:100%;height:100%;display:block}
+  .cap{font-size:.75rem;opacity:.35;margin-top:-1rem}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.8rem;width:100%}
+  .stat{border:1px solid #1d1d1d;border-radius:10px;padding:.8rem}
+  .stat b{display:block;font-size:1.4rem}
+  .stat span{font-size:.8rem;opacity:.55}
+  footer{font-size:.75rem;opacity:.3}
+  .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#111;border:1px solid #333;padding:.6rem 1.2rem;border-radius:999px;font-size:.9rem;opacity:0;transition:opacity .3s;pointer-events:none}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+<main>
+  <!-- intro -->
+  <section id="intro">
+    <h1>Is my black your black?</h1>
+    <p class="sub">Colors are just names, and people disagree on where black ends and black begins. Take this short, rigorous, peer-unreviewed test to find your personal black–black boundary.</p>
+  </section>
+  <div id="introBtns" class="btns"><button class="start" id="start">Start the test</button></div>
+
+  <!-- test -->
+  <section id="test" class="hidden">
+    <p class="q" id="q">Is this color black or black?</p>
+    <p class="hex" id="hex">#000000</p>
+    <p class="progress" id="prog"></p>
+  </section>
+  <div id="testBtns" class="btns hidden">
+    <button id="a">Black</button>
+    <button id="b">Black</button>
+  </div>
+
+  <!-- result -->
+  <section id="result" class="hidden">
+    <h2 id="verdict"></h2>
+    <p class="sub" id="blurb"></p>
+    <div class="bar"><div class="marker" id="marker"></div></div>
+    <div class="labels"><span>black</span><span>black</span></div>
+    <div class="chart"><svg id="chart" viewBox="0 0 400 160" preserveAspectRatio="none"></svg></div>
+    <p class="cap">Distribution of 4,812,307 responses. (The chart is black.)</p>
+    <div class="stats">
+      <div class="stat"><b id="s1"></b><span>blacker than the population</span></div>
+      <div class="stat"><b id="s2"></b><span>your boundary</span></div>
+      <div class="stat"><b id="s3"></b><span>agreement with others</span></div>
+    </div>
+    <div class="btns">
+      <button id="share">Share result</button>
+      <button id="again">Retake (it'll help)</button>
+    </div>
+  </section>
+
+  <footer id="foot">Not affiliated with any color. All blacks shown are black.</footer>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const show = (...els) => els.forEach(e => $(e).classList.remove("hidden"));
+const hide = (...els) => els.forEach(e => $(e).classList.add("hidden"));
+
+// Each round: prompt + the two button labels. Some rounds have tricks.
+const ROUNDS = [
+  { q: "Is this color black or black?",            a: "Black",        b: "Black" },
+  { q: "And this one?",                             a: "Black",        b: "Darker black" },
+  { q: "Take your time. Look closely.",             a: "Black",        b: "Vantablack" },
+  { q: "Is this black or not black?",               a: "Black",        b: "Not black", trick: "dodge" },
+  { q: "Careful, this one is tricky.",              a: "#000000",      b: "rgb(0, 0, 0)" },
+  { q: "Black or blue? (Sorry, wrong site.)",       a: "Black",        b: "Blue", trick: "swap" },
+  { q: "Is this black or are your eyes closed?",    a: "Black",        b: "Eyes closed" },
+  { q: "Almost done. Black or black?",              a: "Black",        b: "Black" },
+  { q: "Final question. Is this black?",            a: "Yes",          b: "Also yes" },
+];
+
+let round = 0, answers = [];
+
+// Imperceptibly different "shades". Strictly scientific.
+function nearBlack() {
+  const c = () => Math.floor(Math.random() * 3);
+  return [c(), c(), c()];
+}
+const hex = rgb => "#" + rgb.map(v => v.toString(16).padStart(2, "0")).join("");
+
+function setRound() {
+  const r = ROUNDS[round], rgb = nearBlack(), h = hex(rgb);
+  document.body.style.backgroundColor = h;
+  $("q").textContent = r.q;
+  $("hex").textContent = h;
+  $("prog").textContent = `${round + 1} / ${ROUNDS.length}`;
+  const a = $("a"), b = $("b");
+  a.textContent = r.a; b.textContent = r.b;
+  b.classList.toggle("dodge", r.trick === "dodge");
+  b.style.left = b.style.top = "0px";
+  b.dataset.trick = r.trick || "";
+}
+
+function answer(choice) {
+  answers.push(choice);
+  if (++round < ROUNDS.length) setRound();
+  else finish();
+}
+
+// "Not black" runs away. You can't escape black.
+function dodge(e) {
+  const b = $("b");
+  if (b.dataset.trick !== "dodge") return;
+  const r = b.getBoundingClientRect();
+  const dx = (r.left + r.width / 2) - e.clientX, dy = (r.top + r.height / 2) - e.clientY;
+  if (Math.hypot(dx, dy) > 140) return;
+  const maxX = innerWidth / 2 - r.width, maxY = 120;
+  let x = parseFloat(b.style.left) + Math.sign(dx || 1) * 120;
+  let y = parseFloat(b.style.top) + Math.sign(dy || 1) * 60;
+  if (Math.abs(x) > maxX) x = -Math.sign(x) * maxX * 0.5;
+  if (Math.abs(y) > maxY) y = -Math.sign(y) * maxY * 0.5;
+  b.style.left = x + "px"; b.style.top = y + "px";
+}
+
+function finish() {
+  hide("test", "testBtns");
+  show("result");
+  document.body.style.overflow = "auto";
+  document.body.style.backgroundColor = "#000";
+
+  const pct = (49.5 + Math.random()).toFixed(4);
+  $("verdict").textContent = "Your black is black.";
+  $("blurb").textContent =
+    `Your boundary is at #000000, which means you are blacker than ${pct}% of the population. ` +
+    `For you, black is black. For everyone else, black is also black.`;
+  $("s1").textContent = pct + "%";
+  $("s2").textContent = "#000000";
+  $("s3").textContent = "100%";
+  $("marker").style.left = (45 + Math.random() * 10) + "%";
+  drawChart();
+}
+
+// A beautiful bell curve, rendered in black on black for accuracy.
+function drawChart() {
+  const svg = $("chart"), n = 40;
+  let s = "";
+  for (let i = 0; i < n; i++) {
+    const x = (i - n / 2 + 0.5) / (n / 6);
+    const h = 150 * Math.exp(-x * x / 2);
+    s += `<rect x="${i * 10 + 1}" y="${160 - h}" width="8" height="${h}" fill="#050505"/>`;
+  }
+  svg.innerHTML = s;
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 2200);
+}
+
+$("start").onclick = () => {
+  hide("intro", "introBtns"); show("test", "testBtns");
+  round = 0; answers = []; setRound();
+};
+$("a").onclick = () => answer("a");
+$("b").onclick = () => {
+  // On the swap round, "Blue" counts as black anyway.
+  if ($("b").dataset.trick === "swap") toast("Interpreting \"Blue\" as \"Black\".");
+  answer("b");
+};
+document.addEventListener("pointermove", dodge);
+$("again").onclick = () => {
+  hide("result"); document.body.style.overflow = "hidden";
+  $("start").click();
+  toast("Recalibrating your black…");
+};
+$("share").onclick = async () => {
+  const text = `My black is black. I'm blacker than ${$("s1").textContent} of people. Is your black my black? ${location.href}`;
+  try {
+    if (navigator.share) await navigator.share({ text });
+    else { await navigator.clipboard.writeText(text); toast("Copied to clipboard."); }
+  } catch { /* user cancelled */ }
+};
+</script>
+</body>
+</html>
